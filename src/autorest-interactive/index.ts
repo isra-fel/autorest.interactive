@@ -1,4 +1,4 @@
-import { ipcRenderer, remote } from 'electron';
+import { ipcRenderer, dialog } from 'electron';
 import * as $ from 'jquery';
 import * as d3 from 'd3';
 import { stringify } from 'jsonpath';
@@ -8,7 +8,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as cp from 'child_process';
 
-// window.onerror = e => remote.dialog.showErrorBox("Unhandled Error", e);
+// window.onerror = e => dialog.showErrorBox("Unhandled Error", e);
 window.onerror = (e) => { };
 
 function remoteEval(expression: string): any {
@@ -343,7 +343,7 @@ function showBlameTreeDetails(blameTree: BlameTree): void {
       .attr("transform", d => `translate(${d.x},${d.y})`)
       .append("g")
       .attr("class", "scalable")
-      .on("click", d => remote.dialog.showMessageBox({ title: d.node.source, message: d.node.name }))
+      .on("click", d => dialog.showMessageBox({ title: d.node.source, message: d.node.name }))
       ;
     const update = nodeData.select(".scalable").merge(enter);
     update.selectAll("*").remove();

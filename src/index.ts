@@ -8,7 +8,13 @@ app.on('window-all-closed', () => {});
 
 const pluginHost = new AutoRestPluginHost();
 pluginHost.Add('autorest-interactive', async (initiator) => {
-    const win = new BrowserWindow({});
+    const win = new BrowserWindow({
+        // https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
     win.maximize();
     win.setMenu(null);
     if (await initiator.GetValue('debug')) {
