@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { AutoRestPluginHost } from './jsonrpc/plugin-host';
 import { createReadStream, createWriteStream } from 'fs';
 import { safeLoad } from 'js-yaml';
@@ -12,7 +12,8 @@ pluginHost.Add('autorest-interactive', async (initiator) => {
         // https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
         webPreferences: {
             nodeIntegration: true,
-            contextIsolation: false
+            contextIsolation: true,
+            preload: `${__dirname}/preload.js`
         }
     });
     win.maximize();

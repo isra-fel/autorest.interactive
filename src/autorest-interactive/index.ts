@@ -1,33 +1,22 @@
-import { ipcRenderer, dialog } from 'electron';
 import * as $ from 'jquery';
 import * as d3 from 'd3';
-import * as jsonPath from 'jsonpath';
 import { JsonPath } from '../jsonrpc/types';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import * as cp from 'child_process';
+
+const api = window.electronApi;
 
 // window.onerror = e => dialog.showErrorBox("Unhandled Error", e);
 window.onerror = (e) => { };
 
-function remoteEval(expression: string): any {
-  return ipcRenderer.sendSync("remoteEval", expression);
-}
-function readFile(uri: string): any {
-  return ipcRenderer.sendSync("readFile", uri);
-}
-
 let nodes: PipelineNode[];
 let opened = false;
 let tmpFolder;
-function deconstruct(identifier) {
-    if (Array.isArray(identifier)) {
-        return [].concat.apply([], [...identifier.map(deconstruct)]);
-    }
-    return identifier.replace(/([a-z]+)([A-Z])/g, '$1 $2').replace(/(\d+)([a-z|A-Z]+)/g, '$1 $2').split(/[\W|_]+/);
-}
-exports.deconstruct = deconstruct;
+// function deconstruct(identifier) {
+//     if (Array.isArray(identifier)) {
+//         return [].concat.apply([], [...identifier.map(deconstruct)]);
+//     }
+//     return identifier.replace(/([a-z]+)([A-Z])/g, '$1 $2').replace(/(\d+)([a-z|A-Z]+)/g, '$1 $2').split(/[\W|_]+/);
+// }
+// exports.deconstruct = deconstruct;
 function copyToTmp(outputUris) {
     if (opened) {
         if (outputUris) {
@@ -36,9 +25,9 @@ function copyToTmp(outputUris) {
                 if (filename.endsWith('...')) {
                     filename = filename.replace('...', '.json');
                 }
-                fs.writeFileSync(
-                    path.join(tmpFolder, filename),
-                    readFile(each)
+                api.fs.writeFileSync(
+                    api.path.join(tmpFolder, filename),
+                    api.remote.readFileSync(each)
                 );
             }
         }
@@ -47,8 +36,8 @@ function copyToTmp(outputUris) {
 function openInCode() {
     if (!opened) {
         opened = true;
-        tmpFolder = fs.mkdtempSync(`${os.tmpdir()}/autorest-tmp-`);
-        cp.exec(`code --new-window ${tmpFolder}`);
+        tmpFolder = api.fs.mkdtempSync(`autorest-tmp-`);
+        api.childProcess.exec(`code --new-window ${tmpFolder}`);
         for (const node of nodes) {
             copyToTmp(node.state.outputUris);
         }
@@ -75,8 +64,8 @@ type PipelineNode = {
 };
 
 $(() => {
-  const startTime = remoteEval("startTime");
-  const pipeline: { [name: string]: PipelineNode } = remoteEval("pipeline");
+  const startTime: number = api.remote.evalSync("startTime");
+  const pipeline: { [name: string]: PipelineNode } = api.remote.evalSync("pipeline");
 
   const depth = (node: PipelineNode) => node.inputs.map(i => depth(pipeline[i]) + 1).reduce((a, b) => Math.max(a, b), 0);
   const runningTime: (node: PipelineNode) => number | null = node => {
@@ -185,13 +174,18 @@ $(() => {
   };
 
   const update = () => {
-    const states = remoteEval(`tasks`);
+    const states: {
+        [key: string]: {
+            _state: 'running' | 'failed' | 'complete';
+            _finishedAt?: number;
+        };
+    } = api.remote.evalSync(`tasks`);
     for (const node of nodes) {
       node.state = node.state || { state: "running" };
       node.state.state = states[node.key]._state;
       node.state.finishedAt = states[node.key]._finishedAt;
       if (node.state.state === "complete" && !node.state.outputUris) {
-        node.state.outputUris = remoteEval(`tasks[${JSON.stringify(node.key)}]._result().map(x => x.key)`);
+        node.state.outputUris = api.remote.evalSync(`tasks[${JSON.stringify(node.key)}]._result().map(x => x.key)`);
         copyToTmp(node.state.outputUris);
       }
     }
@@ -225,7 +219,7 @@ function showNodeDetails(node: PipelineNode): void {
     .append($("<td>").text(node.pluginName)));
   table.append($("<tr>")
     .append($("<td>").text("Configuration Scope"))
-    .append($("<td>").text(jsonPath.stringify(["$"].concat(node.configScope as any)))));
+    .append($("<td>").text(api.jsonPath.stringify(["$"].concat(node.configScope as any)))));
     table.append($("<tr>")
       .append($("<td>").text("Output"))
       .append($("<td>").append(node.state.outputUris.map(uri => $("<a>")
@@ -235,12 +229,12 @@ function showNodeDetails(node: PipelineNode): void {
       .append($("<br>"))))));
 
   // ext. extension
-  const extensionName = remoteEval(`(external[${JSON.stringify(node.pluginName)}] || {}).extensionName`);
+  const extensionName: string = api.remote.evalSync(`(external[${JSON.stringify(node.pluginName)}] || {}).extensionName`);
   if (extensionName) {
     table.append($("<tr>")
       .append($("<td>").text("Extension"))
       .append($("<td>").append(extensionName)));
-    const traffic = remoteEval(`external[${JSON.stringify(node.pluginName)}].__inspectTraffic`);
+    const traffic: [string, boolean, string][] = api.remote.evalSync(`external[${JSON.stringify(node.pluginName)}].__inspectTraffic`);
     for (const [timeStamp, isCore2Ext, payload] of traffic) {
         const payloadShortened = payload.length > 200 ? payload.substr(0, 200) + "..." : payload;
         table.append($("<tr>").css("background", isCore2Ext ? "#FEE" : "#EFE")
@@ -255,10 +249,10 @@ function showNodeDetails(node: PipelineNode): void {
 }
 
 function showUriDetails(uri: string): void {
-  const content = $("<pre>").css("font-family", "monospace").text(readFile(uri));
+  const content = $("<pre>").css("font-family", "monospace").text(api.remote.readFileSync(uri));
   content.click(e => {
     const s = window.getSelection();
-    // showBlameTreeDetails(remoteEval(`blame(${JSON.stringify(uri)}, ${JSON.stringify({ index: s.anchorOffset })})`));
+    // showBlameTreeDetails(api.remote.evalSync(`blame(${JSON.stringify(uri)}, ${JSON.stringify({ index: s.anchorOffset })})`));
   });
   showOverlay(uri, content);
 }
@@ -343,7 +337,8 @@ function showBlameTreeDetails(blameTree: BlameTree): void {
       .attr("transform", d => `translate(${d.x},${d.y})`)
       .append("g")
       .attr("class", "scalable")
-      .on("click", d => dialog.showMessageBox({ title: d.node.source, message: d.node.name }))
+      // todo: uncomment later when show blame feature is enabled
+      // .on("click", d => dialog.showMessageBox({ title: d.node.source, message: d.node.name }))
       ;
     const update = nodeData.select(".scalable").merge(enter);
     update.selectAll("*").remove();

@@ -10,7 +10,6 @@
         "node_modules/**": true,
         // "**/*.js": true,
         "**/*.js.map": true,
-        "**/*.d.ts": true,
         "**/.git": true,
         "**/.svn": true,
         "**/.hg": true,

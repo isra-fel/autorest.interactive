@@ -1,16 +1,10 @@
 {
     "compilerOptions": {
-        "lib": [
-            "es2016",
-            "dom"
-        ],
+        "sourceMap": true,
+        "lib": ["es2016", "dom"],
         "module": "commonjs",
-        "types": [
-            "node"
-        ],
+        "types": ["node"],
         "target": "es2016"
     },
-    "exclude": [
-        "node_modules"
-    ]
+    "exclude": ["node_modules"]
 }
