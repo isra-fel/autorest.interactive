@@ -1,7 +1,7 @@
 import { ipcRenderer, dialog } from 'electron';
 import * as $ from 'jquery';
 import * as d3 from 'd3';
-import { stringify } from 'jsonpath';
+import * as jsonPath from 'jsonpath';
 import { JsonPath } from '../jsonrpc/types';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -225,7 +225,7 @@ function showNodeDetails(node: PipelineNode): void {
     .append($("<td>").text(node.pluginName)));
   table.append($("<tr>")
     .append($("<td>").text("Configuration Scope"))
-    .append($("<td>").text(stringify(["$"].concat(node.configScope as any)))));
+    .append($("<td>").text(jsonPath.stringify(["$"].concat(node.configScope as any)))));
     table.append($("<tr>")
       .append($("<td>").text("Output"))
       .append($("<td>").append(node.state.outputUris.map(uri => $("<a>")
